@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema({
   photoUrl: String,
   password: {
     type: String,
-    minLength: [8, "Password must be at least characters long"],
+    minLength: [8, "Password must be at least 8 characters long"],
     required: [true, "Password is required"],
   },
   resetTokenExpiresIn: Date,

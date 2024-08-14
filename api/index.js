@@ -20,8 +20,12 @@ app.use((err, req, res, next) => {
   const errorCode = err.statusCode || 500;
   const errorMessage = err.errorMessage || "Something went wrong";
   if (err) {
+    const errObj = Object.values(err)[0];
+    const customErrMessage = `${Object.keys(errObj)[0]}:${
+      Object.values(errObj)[0]
+    }`;
     return res.status(errorCode).json({
-      message: errorMessage,
+      message: customErrMessage,
     });
   }
 });

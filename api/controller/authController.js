@@ -2,6 +2,7 @@ import { errorHandler } from "../utils/errorHandler.js";
 import User from "../model/UserModel.js";
 import jwt from "jsonwebtoken";
 import sendEmail from "../utils/mail.js";
+import crypto from "crypto";
 
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -18,7 +19,7 @@ const sendToken = (user, statusCode, res) => {
   });
 
   user.password = undefined;
-  console.log(token, user);
+
   res.status(statusCode).json({
     status: "success",
     token,
@@ -59,7 +60,6 @@ export const authenticate = async (req, res, next) => {
     req.user = currentUser;
     next();
   } catch (error) {
-    console.log(error);
     return next(error);
   }
 };
@@ -87,7 +87,6 @@ export const signup = async (req, res, next) => {
 
     sendToken(newUser, 201, res);
   } catch (error) {
-    console.log(error);
     return next(error);
   }
 };
@@ -182,8 +181,53 @@ export const forgotPassword = async (req, res, next) => {
       subject: "Your password reset token (valid for 10 min)",
       message,
     });
+
+    res.status(200).json({
+      status: "success",
+      message: "Token sent to email!",
+    });
   } catch (error) {
-    console.log(error);
+    return next(error);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { resetToken } = req.params;
+
+    if (!resetToken) {
+      return next(
+        errorHandler(
+          404,
+          "You need to have a proper reset password token sent on you email"
+        )
+      );
+    }
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    const foundUser = await User.findOne({
+      passwordResetToken: hashedToken,
+      resetTokenExpiresIn: { $gt: Date.now() },
+    });
+    if (!foundUser) {
+      return next(errorHandler(404, "Either the token is expired or invalid"));
+    }
+
+    const { password } = req.body;
+    if (!password) {
+      return next(errorHandler(404, "New password is required"));
+    }
+
+    foundUser.password = password;
+    foundUser.passwordResetToken = undefined;
+    foundUser.resetTokenExpiresIn = undefined;
+    const modifiedUser = await foundUser.save();
+    sendToken(modifiedUser, 200, res);
+  } catch (error) {
     return next(error);
   }
 };
